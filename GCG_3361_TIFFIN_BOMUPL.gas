@@ -1,0 +1,614 @@
+Program.Sub.ScreenSU.Start
+gui.SS_Form1..create
+gui.SS_Form1..caption("BOM Upload")
+gui.SS_Form1..size(5520,1725)
+gui.SS_Form1..position(0,0)
+gui.SS_Form1..event(unload,ss_form1_unload)
+gui.SS_Form1..alwaysontop(False)
+gui.SS_Form1..fontname("Arial")
+gui.SS_Form1..fontsize(8)
+gui.SS_Form1..forecolor(0)
+gui.SS_Form1..fontstyle(,,,,)
+gui.SS_Form1..BackColor(-2147483633)
+gui.SS_Form1..controlbox(True)
+gui.SS_Form1..maxbutton(False)
+gui.SS_Form1..minbutton(False)
+gui.SS_Form1..mousepointer(0)
+gui.SS_Form1..moveable(True)
+gui.SS_Form1..sizeable(False)
+gui.SS_Form1..ShowInTaskBar(True)
+gui.SS_Form1..titlebar(True)
+gui.SS_Form1.lbl_txtExcelPath.create(label,"Please select Excel File",True,1800,200,1,100,135,True,0,Arial,8,-2147483633,0)
+gui.SS_Form1.txtExcelPath.create(textbox,"",True,4620,330,0,100,335,True,0,Arial,8,16777215,1)
+gui.SS_Form1.cmd_txtExcelPath.create(button)
+gui.SS_Form1.cmd_txtExcelPath.caption("^")
+gui.SS_Form1.cmd_txtExcelPath.visible(True)
+gui.SS_Form1.cmd_txtExcelPath.size(330,330)
+gui.SS_Form1.cmd_txtExcelPath.zorder(0)
+gui.SS_Form1.cmd_txtExcelPath.position(4910,335)
+gui.SS_Form1.cmd_txtExcelPath.enabled(True)
+gui.SS_Form1.cmd_txtExcelPath.fontname("Arial")
+gui.SS_Form1.cmd_txtExcelPath.fontsize(8)
+gui.SS_Form1.cmd_txtExcelPath.event(click,cmd_txtexcelpath_click)
+gui.SS_Form1.cmdImport.create(button)
+gui.SS_Form1.cmdImport.caption("Import")
+gui.SS_Form1.cmdImport.visible(True)
+gui.SS_Form1.cmdImport.size(1000,360)
+gui.SS_Form1.cmdImport.zorder(0)
+gui.SS_Form1.cmdImport.position(100,750)
+gui.SS_Form1.cmdImport.enabled(True)
+gui.SS_Form1.cmdImport.fontname("Arial")
+gui.SS_Form1.cmdImport.fontsize(8)
+gui.SS_Form1.cmdImport.event(click,cmdimport_click)
+
+
+Program.Sub.ScreenSU.End
+
+Program.Sub.Preflight.Start
+
+Variable.Global.sFilePath.Declare(String)
+Variable.Global.sTopLevelParent.Declare(String)
+Variable.Global.sCol.Declare(String)
+Variable.Global.sUpload.Declare(String)
+Variable.UDT.uBOM.Define("Parent",String)
+Variable.UDT.uBOM.Define("Component",String)
+Variable.UDT.uBOM.Define("Level",String)
+Variable.uGlobal.uBom.Declare("uBOM")
+Variable.Global.iUB.Declare(Long,0)
+Variable.Global.sBomLog.Declare(String)
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+
+'Quote 3857
+'11/10/12
+'for TIffin Metal Products Co.
+'Upload an excel file using GAB to create nomral BOM's only. The upload excel ile will be named the Top level parent
+'allows user to select an excel sheet for import.
+'only use the Sheet 1 Tab
+
+
+'****************Program Operation****************************
+'User will select an spreadsheet to begin the upload
+'Read thru the spreadsheet that was selected
+'Top Level Parent of BOM is the spreadsheet file name
+'Component Part- Column B
+'QTY -Column C
+'Unit of Measure = EA
+'Component Part Desc - Column D
+'Category -Field will be left blank for normal BOMS
+'Source: Manufactured or Purchased Column G
+
+'*************SpreadSheet Columns***************
+'A-Item Number
+'B-File Name GSS Part Number
+'C Quantity
+'D Comments
+'E Material
+'F Square Inches
+'G Source, contains M or P
+
+
+'open connection
+F.ODBC.Connection!conx.OpenConnection(V.Ambient.PDSN,V.Ambient.PUser,V.Ambient.PPass)
+
+Gui.SS_Form1..Show
+Gui.SS_Form1.txtExcelPath.Enabled(False)
+
+
+
+
+
+Program.Sub.Main.End
+
+program.sub.cmd_txtexcelpath_click.start
+'Opens up Save File Dialog Box
+
+
+
+''show open file dialog box for user to choose which spreadsheet they would like for import
+F.Intrinsic.UI.ShowOpenFileDialog("","*.xls","",V.Global.sFilePath)
+
+
+'if user hit cancel, end program
+F.Intrinsic.Control.If(V.Global.sFilePath,=,"***CANCEL***")
+	V.Global.sFilePath.Set("")
+	Gui.SS_Form1.txtExcelPath.Text("")
+	F.Intrinsic.Control.Exitsub
+F.Intrinsic.Control.EndIf
+
+
+'populate the save file path into the text box.
+Gui.SS_Form1.txtExcelPath.Text(V.Global.sFilePath)
+
+
+
+
+program.sub.cmd_txtexcelpath_click.end
+
+program.sub.cmdimport_click.start
+'Import selected excel speadsheet
+'Also check if excel is installed on machine running program
+
+V.Local.bRet.Declare(Boolean)
+V.Local.bFileRet.Declare(Boolean)
+
+
+'check if Microsoft Excel is installed on the machine
+F.Automation.MSExcel.CheckPresence(V.Local.bRet)
+
+'also check to make sure that extension is .xls representing excel spreadsheet
+F.Intrinsic.String.IsInString(V.Global.sFilePath,".xls",True,V.Local.bFileRet)
+
+F.Intrinsic.Control.If(V.Global.sFilePath,=,"")
+	F.Intrinsic.UI.Msgbox("No File Chosen for Upload.","No File Chosen")
+	F.Intrinsic.Control.exitsub
+F.Intrinsic.Control.ElseIf(V.Local.bRet,=,False)
+	F.Intrinsic.UI.Msgbox("Microsoft Excel not found. Ending Program.","Microsoft Excel Not Found")
+	F.Intrinsic.Control.End
+F.Intrinsic.Control.ElseIf(V.Local.bFileRet,<>,True)
+	F.Intrinsic.UI.Msgbox("A file type of .xls or .xlsx must be chosen.","Incorrect File Type")
+	Gui.SS_Form1.txtExcelPath.Text("")
+	F.Intrinsic.Control.ExitSub
+F.Intrinsic.Control.Else
+	'call the BOMCreate Subroutine
+	F.Intrinsic.Control.CallSub(Readexcel)
+F.Intrinsic.Control.EndIf
+
+
+program.sub.cmdimport_click.end
+
+program.sub.ss_form1_unload.start
+F.ODBC.Connection!conx.Close
+F.Intrinsic.Control.End
+
+program.sub.ss_form1_unload.end
+
+Program.Sub.BOMCREATE.Start
+'this subroutine will format the passed values
+'into the text line that is needed for the textfile
+
+V.Local.sParent.Declare(String)
+V.Local.sComponent.Declare(String)
+V.Local.sTemp.Declare(String)
+V.Local.sUM.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sSource.Declare(String)
+V.Local.sLevel.Declare(String)
+
+V.Local.sParent.Set(V.Args.Parent)
+V.Local.sComponent.Set(V.Args.Component)
+V.Local.sUM.Set(V.Args.UM)
+V.Local.sLevel.Set(V.Args.Level)
+
+
+'store the values into the UDT
+F.Intrinsic.Control.CallSub(Udtstore,"Parent",V.Local.sParent,"Component",V.Local.sComponent,"Level",V.Local.sLevel)
+F.Intrinsic.Control.CallSub(Checkexistence,"Parent",V.Local.sParent,"Component",V.Local.sComponent)
+
+
+'if bexists is false then write to the upload text line
+'else it has either in the table existing, or it already has been written in the text file
+F.Intrinsic.Control.If(V.Args.bExists,=,False)
+	'meaning that we are writing this record
+'	F.Intrinsic.Control.CallSub(Bomlog,"Parent",V.Local.sParent,"Comp",V.Local.sComponent,"Level",V.Local.sLevel)
+	'Since this will include a decimal the parent will be the last value stored in the Global SparentNew variable
+	'Parent Number 20 Spaces
+	F.Intrinsic.String.RPad(V.local.sParent," ",20,V.Local.sParent)
+	'Component Part
+	F.Intrinsic.String.RPad(V.local.sComponent.Trim," ",20,V.Local.sComponent)
+	F.Intrinsic.Control.If(V.Local.sUM,=,"SI")
+		'quantity comes from colum 5
+		'Quantity 16 spaces
+		F.Intrinsic.Control.If(V.Global.sCol(5).Trim,<>,"")
+			F.Intrinsic.String.Format(V.global.sCol(5).Trim,"0000.0000",V.Local.sTemp)
+			F.Intrinsic.String.RPad(V.Local.sTemp," ",16,V.Local.sTemp)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.String.Format("0","0000.0000",V.Local.sTemp)
+			F.Intrinsic.String.RPad(V.Local.sTemp," ",16,V.Local.sTemp)
+		F.Intrinsic.Control.endif
+	F.Intrinsic.Control.Else
+		'Quantity 16 spaces
+		F.Intrinsic.Control.If(V.Global.sCol(2).Trim,<>,"")
+			F.Intrinsic.String.Format(V.global.sCol(2).Trim,"0000.0000",V.Local.sTemp)
+			F.Intrinsic.String.RPad(V.Local.sTemp," ",16,V.Local.sTemp)
+		F.Intrinsic.Control.Else
+			F.Intrinsic.String.Format("0","0000.0000",V.Local.sTemp)
+			F.Intrinsic.String.RPad(V.Local.sTemp," ",16,V.Local.sTemp)
+		F.Intrinsic.Control.EndIf
+	F.Intrinsic.Control.Endif
+	'concat all three together
+	F.Intrinsic.String.Concat(V.global.sUpload,V.Local.sParent,V.Local.sComponent,V.Local.sTemp,V.global.sUpload)
+	V.Local.sTemp.Set("")
+	'Unit of Measure 2 spaces
+	F.Intrinsic.String.RPad(V.local.sUM," ",2,V.Local.sUM)
+	'Comp Part Desc 30 spaces
+	F.Intrinsic.String.RPad(V.global.sCol(3).Trim," ",30,V.Local.sDesc)
+	'fill for 86 spaces
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",86,V.Local.sTemp)
+	'Purge flag N
+	F.Intrinsic.String.Concat(V.global.sUpload,V.Local.sUM,V.Local.sDesc,V.Local.sTemp,"N",V.global.sUpload)
+	V.Local.sTemp.Set("")
+	'Fill 27 spaces
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",27,V.Local.sTemp)
+	F.Intrinsic.String.Concat(V.global.sUpload,V.Local.sTemp,V.global.sUpload)
+	'Source CODE
+	F.Intrinsic.Control.If(V.Local.sUM,=,"SI")
+		'then source code will be P, else it will be whatever is in the table
+		F.Intrinsic.String.Concat(V.global.sUpload,"P",V.global.supload)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.String.RPad(V.global.sCol(6).Trim," ",1,V.Local.sSource)
+		F.Intrinsic.String.Concat(V.global.sUpload,V.local.sSource,V.global.supload)
+	F.Intrinsic.Control.EndIf
+	'fill Frequncy, Drawing Size, Sim Part, Rev Code, Date, Sort Value, Start and Stop Date, Serial Start and Stop 89 spaces
+	V.Local.sTemp.Set("")
+	F.Intrinsic.String.RPad(V.Local.sTemp," ",89,V.Local.sTemp)
+	F.Intrinsic.String.Concat(V.global.sUpload,V.Local.sTemp,V.global.sUpload)
+	'Require Trace Flag to N
+	F.Intrinsic.String.Concat(V.global.sUpload,V.local.stemp,"N",V.ambient.newline,V.global.sUpload)
+F.Intrinsic.Control.EndIf
+
+
+F.Intrinsic.Control.ExitSub
+
+Program.Sub.BOMCREATE.End
+
+Program.Sub.ReadExcel.Start
+'here we will read the spreadsheet and determine the parent and the
+'component part combination and all the information
+'pass this to a subroutine that has the set up for the text file
+
+
+
+V.Local.iRet.Declare(Long)
+V.Local.sParentNum.Declare(String)
+V.local.iRowCount.Declare(Long)
+V.Local.iC.Declare(Long)
+V.Local.sPartReturn.Declare(String)
+V.Local.sFile.Declare(String)
+V.Local.sRow.Declare(String)
+'V.Local.sCol.Declare(String)
+V.Local.iOccurs.Declare(Long)
+V.Local.iLevel.Declare(Long)
+V.Local.sCheck.Declare(String)
+V.Local.iParentLevel.Declare(Long)
+
+V.Local.sParent1.Declare(String)
+V.Local.sParent2.Declare(String)
+V.local.sParent3.Declare(String)
+V.Local.sParent4.Declare(String)
+V.Local.sParent5.Declare(String)
+V.Local.sParent6.Declare(String)
+
+
+'open wait dialog, close form
+Gui.SS_Form1..Visible(false)
+F.Intrinsic.UI.InvokeWaitDialog("Starting upload process.","BOM Upload")
+
+F.Intrinsic.UI.ChangeWaitStatus("Reading spreadsheet.... Please wait..")
+'openspreadsheet
+F.Automation.MSExcel.CreateAppObject("ExcelApp")
+F.Automation.MSExcel.OpenWorkbook("ExcelApp","WB",V.Global.sFilePath)
+F.Automation.MSExcel.OpenWorksheet("WB","Sheet 1",1)
+'getthenumberofrowsthatareintheopenedspreadhsheet
+F.Automation.MSExcel.RowCount("Sheet 1",V.Local.iRowCount)
+'readthespreadsheetthathasbeenchosen
+F.Automation.MSExcel.ReadSpreadsheet(V.Global.sFilePath,0,V.Local.iRowCount,V.Local.sFile)
+F.Automation.MSExcel.DestroyAllObjects("ExcelAPP","WB","Sheet 1")
+F.Intrinsic.String.Split(V.Local.sFile,"$!$",V.Local.sRow)
+'
+'F.Intrinsic.Debug.InvokeDebugger
+'F.Intrinsic.Debug.Stop
+
+
+'need to read the oo calc spreadsheet
+'F.Automation.OOGeneral.createcontainer("OOCONT")
+'F.Automation.OOGeneral.CreateAppObject("OOCONT","OOAPP")
+'F.Automation.OOCalc.OpenWorkbook("OOCONT","OOAPP","WB",V.Global.sFilePath)
+'F.Automation.OOCalc.OpenWorksheet("WB","SHEET1",0)
+'F.Automation.OOCalc.ReadSpreadsheet(V.Global.sFilePath,True,V.Local.sFile)
+
+F.Intrinsic.String.Split(V.local.sFile,"$!$",V.Local.sRow)
+
+'get the file name to be used as the parent
+F.Intrinsic.File.GetFileNameFromFQN(V.Global.sFilePath,V.Local.sParentNum)
+'split the file name to get the top level parent value
+F.Intrinsic.String.Split(V.Local.sparentnum,".",V.Local.sParentNum)
+F.Intrinsic.String.UCase(V.Local.sParentNum(0),V.Local.sParentNum(0))
+V.Global.sTopLevelParent.Set(V.Local.sParentNum(0))
+V.Global.sBomLog.Set(V.Global.sTopLevelParent)
+
+
+
+'sub 1 from the total row count, count is one less
+F.Intrinsic.Math.Sub(V.Local.iRowCount,1,V.Local.iRowCount)
+
+'For loop that will go thru each row in the spreadsheet
+'Format the data necessary for the BOM upload
+
+F.Intrinsic.Control.For(V.Local.iC,1,V.Local.iRowCount,1)
+	F.Intrinsic.UI.ChangeWaitStatus("Reading Spreadsheet...",V.Local.iC,0,V.Local.iRowCount)
+	'this if for oo calc
+''	F.Automation.OOCalc.ReadRow("Sheet1",V.Local.iC,0,V.Local.iRet,V.Local.sRow)
+	F.Intrinsic.String.Split(V.Local.sRow(v.Local.iC),"*!*",V.global.sCol)
+	'first we need to see if the part found in the column b is in our inventory
+	F.Global.Inventory.GetPartInfo(V.global.scol(1),"",V.Local.sPartReturn)
+	F.Intrinsic.Control.If(V.Local.sPartReturn,=,"***NOPARTFOUND***")
+'	F.Intrinsic.Control.AndIf(V.Global.sCol(6).UCase,<>,"P")
+		F.Intrinsic.Control.CallSub(Createpart,"Part",V.global.sCol(1).Trim,"Desc",V.global.sCol(3))
+	F.Intrinsic.Control.EndIf
+'F.Intrinsic.Debug.InvokeDebugger
+'F.Intrinsic.Debug.Stop
+
+	'now lets figure out the parent level and componenet parts
+	F.Intrinsic.String.Occurs(V.global.sCol(0),".",V.Local.iOccurs)
+'based on how many p's are entered we only want to skip the p records who are children to a p part, not a m part.
+	F.Intrinsic.Control.If(V.Global.sCol(6).UCase,=,"M")
+		V.Local.iParentLevel.Set(V.local.iOccurs)
+	F.Intrinsic.Control.EndIf
+	
+	F.Intrinsic.Control.If(V.Global.sCol(6).UCase,=,"P")
+'	F.Intrinsic.Control.AndIf(V.Local.iOccurs,<=,V.Local.iParentLevel)
+		'set level to occurs value
+		V.Local.iLevel.Set(V.Local.iOccurs)
+		V.Local.sCheck.Set("P")
+	F.Intrinsic.Control.EndIf
+	'no decimals found meaning that the file name is the parent and the part in column b is the componenet
+		F.Intrinsic.Control.If(V.Local.iOccurs,=,0)
+			'call the BOMCREATESUB and then pass the variables to what they need to be
+			'set this possible parent value
+			V.Local.sParent1.Set(V.global.sCol(1).Trim)
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Global.sTopLevelParent,"Component",V.global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.ElseIf(V.Local.iOccurs,=,1)
+		'onedecimalinthevaluemeaningthelastparentnextvaluewillbetheparent
+			V.Local.sParent2.Set(V.Global.sCol(1))
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Local.sParent1,"Component",V.global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.ElseIf(V.Local.iOccurs,=,2)
+			V.Local.sParent3.Set(V.Global.sCol(1).Trim)
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Local.sParent2,"Component",V.Global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.ElseIf(V.Local.iOccurs,=,3)
+			V.Local.sParent4.Set(V.Global.sCol(1).Trim)
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Local.sParent3,"Component",V.Global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.Elseif(V.Local.iOccurs,=,4)
+			V.Local.sParent5.set(V.global.scol(1).Trim)
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Local.sParent4,"Component",V.Global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.ElseIf(V.Local.iOccurs,=,5)
+			V.Local.sParent6.Set(V.Global.sCol(1).Trim)
+			'only going to go this far meaning that there can be a BOM that has 4 levels
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Local.sParent5,"Component",V.Global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.ElseIf(V.Local.iOccurs,=,6)
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Local.sParent6,"Component",V.Global.sCol(1).Trim,"UM",V.Global.sCol(7),"Level",V.Local.iOccurs)
+		F.Intrinsic.Control.EndIf
+		'now we also need to check and see if any material value is in the Column
+		F.Intrinsic.Control.If(V.Global.sCol(4).Trim,<>,"")
+		F.Intrinsic.Control.AndIf(V.Global.sCol(6).UCase,<>,"P")
+			F.Intrinsic.Control.CallSub(Bomcreate,"Parent",V.Global.sCol(1),"Component",V.Global.sCol(4),"UM","SI","Level","**")
+		F.Intrinsic.Control.EndIf
+	'ALSO CHECK AND MAKE SURE THAT WE ARE NOT WITHIN A PURCHASED COMPONENT PART
+	'IF WE ARE WE ARE NOT GOING TO WRITE ITS CHILDREN IF ANY EXIST
+	F.Intrinsic.Control.If(V.local.sCheck.UCase,=,"P")
+		F.Intrinsic.Math.Add(V.Local.iC,1,V.Local.iC)
+		F.Intrinsic.string.Split(V.Local.sRow(v.Local.iC),"*!*",V.Global.sCol)
+		F.Intrinsic.String.Occurs(v.global.sCol(0),".",v.Local.iOccurs)
+		F.Intrinsic.Control.Do
+			F.Intrinsic.Control.If(V.Local.iOccurs,<=,V.Local.iLevel)
+				F.Intrinsic.Control.ExitDo
+			F.Intrinsic.Control.Else
+				F.Intrinsic.Math.Add(V.Local.iC,1,V.Local.iC)
+				F.Intrinsic.string.Split(V.Local.sRow(v.Local.iC),"*!*",V.Global.sCol)
+				F.Intrinsic.String.Occurs(v.global.sCol(0),".",v.Local.iOccurs)
+			F.Intrinsic.Control.EndIf
+		F.Intrinsic.Control.Loop
+	'we must minus one from v.local.ic because we added twice,
+	'it will only occur when we are in if statement so it should be moved back
+	F.Intrinsic.Math.Sub(V.Local.iC,1,V.Local.iC)
+	F.Intrinsic.Control.EndIf
+	V.Local.sCheck.Set("M")
+F.Intrinsic.Control.Next(V.Local.iC)
+
+'once we have reached the end of the file now we need to call the upload program and upload it, bam
+F.Intrinsic.Control.CallSub(Uploadtxt)
+
+
+
+Program.Sub.ReadExcel.End
+
+Program.Sub.CreatePart.Start
+'this subroutine will get the passed part
+'and create it for use with the BOM
+
+V.Local.sPart.Declare(String)
+V.Local.sDesc.Declare(String)
+V.Local.sDescMain.Declare(String)
+V.Local.sAlt1Desc.Declare(String)
+V.Local.sAlt2Desc.Declare(String)
+
+V.Local.sPart.Set(V.Args.Part)
+V.Local.sDesc.Set(V.Args.Desc)
+
+'part will need to be created, with required fields: Part #, Product Line, UM, Source Code, Description, Alt Desc1, and Alt Desc 2
+'Separate the descriptions may be longer than 30 characters into DescMain, Alt 1 Desc, and Alt 2 Desc
+'Pad the value of sDesc  with 90 characters, split up each into 30 characters groups and into own variables to be used in the create part function
+F.Intrinsic.String.RPad(V.Local.sDesc," ",90,V.Local.sDesc)
+F.Intrinsic.String.Left(V.Local.sDesc,30,V.Local.sDescMain)
+F.Intrinsic.String.Mid(V.Local.sDesc,30,30,V.Local.sAlt1Desc)
+F.Intrinsic.String.Right(V.Local.sDesc,30,V.Local.sAlt2Desc)
+'trim spaces if any from all
+F.Intrinsic.String.Trim(V.Local.sDescMain,V.Local.sDescMain)
+F.Intrinsic.String.Trim(V.Local.salt1desc,V.Local.sAlt1Desc)
+F.Intrinsic.String.Trim(V.Local.sAlt2Desc,V.Local.sAlt2Desc)
+'create the part using the create part function
+F.Global.Inventory.CreatePart(V.local.Spart,V.Global.sCol(7),V.Local.sDescMain,"",V.Global.sCol(8),V.Global.sCol(6),V.Local.sAlt1Desc,V.Local.sAlt2Desc,"","NOMAINT")
+
+F.Intrinsic.Control.ExitSub
+
+
+
+Program.Sub.CreatePart.End
+
+Program.Sub.CheckExistence.Start
+'this subroutine will search thru the
+'BOM Master table to see if a parent and component part combination exist
+'if it does dont write the text line.
+
+'also need to check and see if a parent and componenet part combination has been written
+'already previoulsly to the Global SUPload variable
+'if it has skip this one
+
+V.Local.sSQL.Declare(String)
+V.Local.bExists.Declare(Boolean)
+V.Local.sRet.Declare(String)
+V.Local.iOccurs.Declare(Long)
+
+F.Intrinsic.String.Concat("Select * From BOM_MSTR Where Parent ='",V.Args.Parent.Trim,"' AND Part ='",V.Args.Component,"'",V.Local.sSQL)
+F.ODBC.Connection!conx.OpenLocalRecordsetRO("rst",V.Local.sSQL)
+F.Intrinsic.Control.If(V.ODBC.conx!rst.EOF,=,True)
+	'meaning that nothin was found
+	'now since it was not found already written in the table
+	'lets make sure that it was not also already previously written in the text file
+	'now we need to loop thru udt
+	F.Intrinsic.Variable.UDTMultiSeek(V.uGlobal.uBom!parent,V.Args.Parent,V.uGlobal.uBom!Component,V.Args.Component,V.Local.sRet)
+	F.Intrinsic.String.Occurs(V.Local.sRet,"*!*",V.Local.iOccurs)
+	F.Intrinsic.Control.If(V.local.iOccurs,>,0)
+		'set bExists to True
+		F.Intrinsic.Variable.AddRV("bExists",True)
+	F.Intrinsic.Control.Else
+		F.Intrinsic.Variable.AddRV("bExists",False)
+	F.Intrinsic.Control.EndIf
+F.Intrinsic.Control.Else
+	F.Intrinsic.Variable.AddRV("bExists",True)
+F.Intrinsic.Control.EndIf
+
+
+Program.Sub.CheckExistence.End
+
+Program.Sub.UDTSTORE.Start
+'this sub will store the parent and componenet sequences
+'into a UDT
+
+'V.Local.iUB.Declare(Long)
+
+
+F.Intrinsic.Control.If(V.uGlobal.uBom.UBound,=,-1)
+	V.uGlobal.uBom.Redim(0,0)
+	V.global.iUB.Set(0)
+F.Intrinsic.Control.Else
+	F.Intrinsic.Math.Add(V.global.iUB,1,V.global.iUB)
+	V.uGlobal.uBom.RedimPreserve(0,V.global.iUB)
+F.Intrinsic.Control.EndIf
+'V.uGlobal.uBom(v.Global.iUB)!Level.Set(V.Args.Level)
+V.uGlobal.uBom(v.global.iUB)!Parent.Set(V.Args.Parent)
+V.uGlobal.uBom(v.global.iUB)!Component.Set(V.Args.component)
+
+
+Program.Sub.UDTSTORE.End
+
+Program.Sub.UploadTXT.Start
+'here we will take the global variable supload
+'put it into a text file called
+'BOMC.TXT,
+'then call the UPLBOMC upload program
+
+
+'create text file
+V.Local.sFile.Declare(String)
+V.Local.bRet.Declare(Boolean)
+V.Local.sParam.Declare(String)
+
+
+F.Intrinsic.UI.ChangeWaitStatus("Preparing file for upload...")
+F.Intrinsic.UI.Sleep(2)
+'concat the file name, name the file to what is required by the UPLBOMC program
+'file name should be BOMC.TXT
+'concatthefilename,name the file to what is required by the GS Data Conversion
+F.intrinsic.string.concat(V.caller.FilesDir,"\BOMC.TXT",V.Local.sFile)
+
+'Check if file already exists
+'if file does exist, delete it and write new data
+'else just write data to file that doesn't exist
+F.Intrinsic.File.Exists(V.Local.sFile,V.Local.bRet)
+F.Intrinsic.Control.If(V.Local.bRet,=,True)
+	F.Intrinsic.File.DeleteFile(V.Local.sFile)
+	F.Intrinsic.File.String2File(V.Local.sFile,V.global.sUpload)
+F.Intrinsic.Control.Else
+F.Intrinsic.File.String2File(V.Local.sFile,V.global.sUpload)
+F.Intrinsic.Control.EndIf
+F.Intrinsic.UI.ChangeWaitStatus("Beginning Upload.")
+F.Intrinsic.UI.Sleep(1)
+F.Intrinsic.Debug.Stop
+
+
+'call the upload program UPLBOMC
+'Program parameters stored in sParam
+F.Intrinsic.String.Concat(V.Caller.CompanyCode,"1","UPLBOMC",V.Local.sParam)
+'call the upload program
+F.Intrinsic.Task.LaunchGSSSync("UPL001A","-c",V.Local.sParam)
+
+F.Intrinsic.UI.ChangeWaitStatus("Upload Complete.")
+F.Intrinsic.UI.Sleep(3)
+F.Intrinsic.UI.CloseWaitDialog
+
+F.Intrinsic.Control.CallSub(Ss_form1_unload)
+
+
+
+Program.Sub.UploadTXT.End
+
+Program.Sub.BomLog.Start
+F.Intrinsic.Control.SetErrorHandler("BomLog_Err")
+F.Intrinsic.Control.ClearErrors
+
+
+'subroutine that will build a log file based on the necessary parts and components
+'display this log within the text box and verify that the upload is correct
+V.Local.sError.Declare(String)
+V.Local.sParent.Declare(String)
+V.Local.sComp.Declare(String)
+V.Local.sLevel.Declare(String)
+V.Local.sComp.set(V.Args.comp)
+V.Local.sLevel.Set(V.args.Level)
+
+
+'first always do the first level top parent
+F.Intrinsic.Control.SelectCase(V.Local.sLevel)
+	F.Intrinsic.Control.Case(0)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.Ambient.Tab,V.Local.sComp,V.Global.sBomLog)
+	F.Intrinsic.Control.Case(1)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.Ambient.Tab,V.Ambient.Tab,V.Local.sComp,V.global.sBomLog)
+	F.Intrinsic.Control.Case(2)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.Ambient.tab,V.Ambient.Tab,V.Ambient.Tab,V.Local.sComp,V.Global.sBomLog)
+	F.Intrinsic.Control.Case(3)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.Local.sComp,V.Global.sBomLog)
+	F.Intrinsic.Control.Case(4)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.ambient.tab,V.Local.sComp,V.Global.sBomLog)
+	F.Intrinsic.Control.Case(5)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.ambient.tab,V.Local.sComp,V.Global.sBomLog)
+	F.Intrinsic.Control.Case(6)
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.NewLine,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.Ambient.Tab,V.ambient.tab,V.Ambient.Tab,V.Ambient.Tab,V.Local.sComp,V.Global.sBomLog)
+	F.Intrinsic.Control.Case("**")
+		F.Intrinsic.String.Concat(V.Global.sBomLog,V.Ambient.Tab,V.Local.sComp,V.Global.sBomLog)
+F.Intrinsic.Control.EndSelect
+
+F.Intrinsic.Control.ExitSub
+
+F.Intrinsic.Control.Label("BomLog_Err")
+F.Intrinsic.Control.If(V.Ambient.ErrorNumber,<>,0)
+	Function.Intrinsic.String.Concat("Project: GCG_TIFFIN_BOMUPL.gas",V.Ambient.Newline,V.Ambient.Newline,"Subroutine: ",V.Ambient.CurrentSubroutine,V.Ambient.NewLine,"Error Occurred ",V.Ambient.ErrorNumber," with description ",V.Ambient.ErrorDescription,V.Local.sError)
+	F.Intrinsic.UI.Msgbox(V.Local.sError)
+	F.Intrinsic.Control.CallSub(Ss_form1_unload)
+
+Function.Intrinsic.Control.EndIf
+
+
+Program.Sub.BomLog.End
+
+Program.Sub.Comments.Start
+${$0$}$GCG_BOM_UPL_VAR1$}$SUPERVSR$}$1/23/2013
+Program.Sub.Comments.End
+Program.Sub.ScreenSS.Start
+SS_Form1{{CAPTION::BOM Upload
+SS_Form1.CTRL{{NAME::txtExcelPath\\TYPE::2\\CAPTION::Please select Excel File\\GROUP::-1\\BROWSER::1\\SIZE::1
+SS_Form1.CTRL{{NAME::cmdImport\\TYPE::5\\CAPTION::Import\\GROUP::-1\\BROWSER::0\\SIZE::1
+
+Program.Sub.ScreenSS.End
+
